@@ -1,6 +1,8 @@
 import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
+import 'package:employee_directory/core/constants/db_constants.dart';
+import 'package:hive/hive.dart';
 
 import '../../../../core/config/newtwork_config.dart';
 import '../../../../core/errors/error.dart';
@@ -24,29 +26,34 @@ class EmployeeRepositoryImpl extends EmployeeRepository {
     List<EmployeeModel> employee = [];
 
     if (await networkConfig.isConnected) {
-      var s = await employeeRemote.getEmployee();
-      s.fold(
-        (l) => errors = l,
-        (r) {
-          for (var item in r) {
-            if (item["company"] != null) {
-              EmployeeModel type = EmployeeModel.fromJson(item);
-              employee.add(type);
+      if (Hive.box<EmployeeModel>(EMPLOYEE).values.length == 0) {
+        var s = await employeeRemote.getEmployee();
+        s.fold(
+          (l) => errors = l,
+          (r) {
+            for (var item in r) {
+              if (item["company"] != null) {
+                EmployeeModel type = EmployeeModel.fromJson(item);
+                employee.add(type);
+              }
             }
-          }
-          return employee;
-        },
-      );
+            return employee;
+          },
+        );
 
-      log(employee.toString());
-      if (errors != null) return Left(errors);
+        log(employee.toString());
+        if (errors != null) return Left(errors);
 
-      print("Chat User Len:\t${employee.length}");
+        print("Chat User Len:\t${employee.length}");
 
-      var value = await employeeLocal.addEmployee(
-        employee,
-      );
-      return Right(value);
+        var value = await employeeLocal.addEmployee(
+          employee,
+        );
+        return Right(value);
+      } else {
+        var value = await employeeLocal.getEmployee();
+        return Right(value);
+      }
     } else {
       var value = await employeeLocal.getEmployee();
       return Right(value);
